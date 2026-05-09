@@ -86,6 +86,73 @@ if authentication_status:
     authenticator.logout("Logout", "sidebar")
 
     st.title(f"🌙 MindNest — Welcome {username}")
+=======
+# ================= LOGIN SYSTEM =================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+if not st.session_state.logged_in:
+
+    st.title("🌙 MindNest Login")
+
+    auth_mode = st.radio(
+        "Choose Option",
+        ["Login", "Sign Up"]
+    )
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    # ---------- SIGN UP ----------
+    if auth_mode == "Sign Up":
+
+        if st.button("Create Account"):
+
+            try:
+                cursor.execute(
+                    "INSERT INTO users (username, password) VALUES (?, ?)",
+                    (username, password)
+                )
+                conn.commit()
+
+                st.success("Account Created!")
+
+            except:
+                st.error("Username already exists.")
+
+    # ---------- LOGIN ----------
+    else:
+
+        if st.button("Login"):
+
+            cursor.execute(
+                "SELECT * FROM users WHERE username=? AND password=?",
+                (username, password)
+            )
+
+            user = cursor.fetchone()
+
+            if user:
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.rerun()
+
+            else:
+                st.error("Invalid username or password")
+
+# ================= MAIN APP =================
+else:
+
+    st.title(f"🌙 MindLess — Welcome {st.session_state.username}")
+
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.rerun()
+>>>>>>> eb50f6b9264492ee64f91ed447b79f8b43d450d1
 
     menu = st.sidebar.radio(
         "Navigate",
