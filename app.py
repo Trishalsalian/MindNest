@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit_authenticator as stauth
 from database import conn, cursor
 from datetime import date
 
@@ -14,71 +15,77 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 conn.commit()
 
-# ================= LOGIN SYSTEM =================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+st.title("🌙 MindNest")
 
-if "username" not in st.session_state:
-    st.session_state.username = ""
+auth_mode = st.radio(
+    "Choose Option",
+    ["Login", "Sign Up"]
+)
 
-if not st.session_state.logged_in:
+# ================= SIGN UP =================
+if auth_mode == "Sign Up":
 
-    st.title("🌙 MindNest Login")
+    new_username = st.text_input("Create Username")
+    new_password = st.text_input("Create Password", type="password")
 
-    auth_mode = st.radio(
-        "Choose Option",
-        ["Login", "Sign Up"]
-    )
+    if st.button("Create Account"):
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+        hashed_password = stauth.Hasher([new_password]).generate()[0]
 
-    # ---------- SIGN UP ----------
-    if auth_mode == "Sign Up":
-
-        if st.button("Create Account"):
-
-            try:
-                cursor.execute(
-                    "INSERT INTO users (username, password) VALUES (?, ?)",
-                    (username, password)
-                )
-                conn.commit()
-
-                st.success("Account Created!")
-
-            except:
-                st.error("Username already exists.")
-
-    # ---------- LOGIN ----------
-    else:
-
-        if st.button("Login"):
-
+        try:
             cursor.execute(
-                "SELECT * FROM users WHERE username=? AND password=?",
-                (username, password)
+                "INSERT INTO users (username, password) VALUES (?, ?)",
+                (new_username, hashed_password)
             )
+            conn.commit()
 
-            user = cursor.fetchone()
+            st.success("Account Created!")
 
-            if user:
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.rerun()
+        except:
+            st.error("Username already exists.")
 
-            else:
-                st.error("Invalid username or password")
+    st.stop()
+
+# ================= LOGIN =================
+cursor.execute("SELECT username, password FROM users")
+users = cursor.fetchall()
+
+credentials = {
+    "usernames": {}
+}
+
+for user in users:
+    credentials["usernames"][user[0]] = {
+        "name": user[0],
+        "password": user[1]
+    }
+
+authenticator = stauth.Authenticate(
+    credentials,
+    "mindnest_cookie",
+    "abcdef",
+    cookie_expiry_days=30
+)
+
+name, authentication_status, username = authenticator.login(
+    "Login",
+    "main"
+)
+
+if authentication_status == False:
+    st.error("Incorrect username or password")
+    st.stop()
+
+if authentication_status == None:
+    st.warning("Please enter login details")
+    st.stop()
 
 # ================= MAIN APP =================
-else:
+if authentication_status:
 
-    st.title(f"🌙 MindNest — Welcome {st.session_state.username}")
+    authenticator.logout("Logout", "sidebar")
 
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.username = ""
-        st.rerun()
+    st.title(f"🌙 MindNest — Welcome {username}")
 
     menu = st.sidebar.radio(
         "Navigate",
