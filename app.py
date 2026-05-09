@@ -15,17 +15,41 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 conn.commit()
 
+# ================= LOAD USERS =================
+def get_users():
+    cursor.execute("SELECT username, password FROM users")
+    users = cursor.fetchall()
+
+    credentials = {"usernames": {}}
+
+    for user in users:
+        credentials["usernames"][user[0]] = {
+            "name": user[0],
+            "password": user[1]
+        }
+
+    return credentials
+
+
+credentials = get_users()
+
 # ================= AUTH =================
-if not st.session_state.get("authentication_status"):
+authenticator = stauth.Authenticate(
+    credentials,
+    "mindnest_cookie",
+    "abcdef",
+    cookie_expiry_days=30
+)
+
+name, auth_status, username = authenticator.login(location="main")
+
+# ================= SIGN UP UI =================
+if not auth_status:
 
     st.title("🌙 MindNest")
 
-    auth_mode = st.radio(
-        "Choose Option",
-        ["Login", "Sign Up"]
-    )
+    auth_mode = st.radio("Choose Option", ["Login", "Sign Up"])
 
-    # ================= SIGN UP =================
     if auth_mode == "Sign Up":
 
         new_username = st.text_input("Create Username")
@@ -49,60 +73,17 @@ if not st.session_state.get("authentication_status"):
 
         st.stop()
 
-    # ================= LOGIN =================
-    cursor.execute("SELECT username, password FROM users")
-    users = cursor.fetchall()
+# ================= LOGIN FAIL =================
+if auth_status is False:
+    st.error("Incorrect username or password")
+    st.stop()
 
-    credentials = {
-        "usernames": {}
-    }
-
-    for user in users:
-        credentials["usernames"][user[0]] = {
-            "name": user[0],
-            "password": user[1]
-        }
-
-    authenticator = stauth.Authenticate(
-        credentials,
-        "mindnest_cookie",
-        "abcdef",
-        cookie_expiry_days=30
-    )
-
-    try:
-        authenticator.login(location="main")
-    except Exception as e:
-        st.error(e)
-
-# ================= AFTER LOGIN =================
-if st.session_state.get("authentication_status"):
-
-    cursor.execute("SELECT username, password FROM users")
-    users = cursor.fetchall()
-
-    credentials = {
-        "usernames": {}
-    }
-
-    for user in users:
-        credentials["usernames"][user[0]] = {
-            "name": user[0],
-            "password": user[1]
-        }
-
-    authenticator = stauth.Authenticate(
-        credentials,
-        "mindnest_cookie",
-        "abcdef",
-        cookie_expiry_days=30
-    )
+# ================= LOGIN SUCCESS =================
+if auth_status:
 
     authenticator.logout("Logout", "sidebar")
 
-    username = st.session_state.get("username")
-
-    st.title(f"🌙 MindNest — Welcome {username}")
+    st.title(f"🌙 MindNest — Welcome {name}")
 
     menu = st.sidebar.radio(
         "Navigate",
@@ -137,10 +118,7 @@ if st.session_state.get("authentication_status"):
 
             with col2:
                 if st.button("❌", key=f"diary_{entry[0]}"):
-                    cursor.execute(
-                        "DELETE FROM diary WHERE id=?",
-                        (entry[0],)
-                    )
+                    cursor.execute("DELETE FROM diary WHERE id=?", (entry[0],))
                     conn.commit()
                     st.rerun()
 
@@ -180,10 +158,7 @@ if st.session_state.get("authentication_status"):
 
             with col2:
                 if st.button("❌", key=f"delete_{t[0]}"):
-                    cursor.execute(
-                        "DELETE FROM todo WHERE id=?",
-                        (t[0],)
-                    )
+                    cursor.execute("DELETE FROM todo WHERE id=?", (t[0],))
                     conn.commit()
                     st.rerun()
 
@@ -208,17 +183,11 @@ if st.session_state.get("authentication_status"):
             col1, col2 = st.columns([8,1])
 
             with col1:
-                st.checkbox(
-                    f"{t[1]} → {t[2]}",
-                    key=f"time_{t[0]}"
-                )
+                st.write(f"{t[1]} → {t[2]}")
 
             with col2:
                 if st.button("❌", key=f"tt_{t[0]}"):
-                    cursor.execute(
-                        "DELETE FROM timetable WHERE id=?",
-                        (t[0],)
-                    )
+                    cursor.execute("DELETE FROM timetable WHERE id=?", (t[0],))
                     conn.commit()
                     st.rerun()
 
@@ -252,15 +221,6 @@ if st.session_state.get("authentication_status"):
 
             with col2:
                 if st.button("❌", key=f"mood_{m[0]}"):
-                    cursor.execute(
-                        "DELETE FROM mood WHERE id=?",
-                        (m[0],)
-                    )
+                    cursor.execute("DELETE FROM mood WHERE id=?", (m[0],))
                     conn.commit()
                     st.rerun()
-
-elif st.session_state.get("authentication_status") is False:
-    st.error("Incorrect username or password")
-
-elif st.session_state.get("authentication_status") is None:
-    st.warning("Please enter login details")
