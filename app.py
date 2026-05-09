@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
 conn.commit()
 
 # ================= LOAD USERS =================
-def get_users():
+def get_credentials():
     cursor.execute("SELECT username, password FROM users")
     users = cursor.fetchall()
 
@@ -31,7 +31,7 @@ def get_users():
     return credentials
 
 
-credentials = get_users()
+credentials = get_credentials()
 
 # ================= AUTH =================
 authenticator = stauth.Authenticate(
@@ -41,16 +41,21 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
-name, auth_status, username = authenticator.login(location="main")
+# NEW STYLE (NO UNPACKING)
+authenticator.login(location="main")
 
-# ================= SIGN UP UI =================
-if not auth_status:
+name = st.session_state.get("name")
+auth_status = st.session_state.get("authentication_status")
+username = st.session_state.get("username")
+
+# ================= SIGN UP / LOGIN UI =================
+if auth_status is None:
 
     st.title("🌙 MindNest")
 
-    auth_mode = st.radio("Choose Option", ["Login", "Sign Up"])
+    option = st.radio("Choose Option", ["Login", "Sign Up"])
 
-    if auth_mode == "Sign Up":
+    if option == "Sign Up":
 
         new_username = st.text_input("Create Username")
         new_password = st.text_input("Create Password", type="password")
@@ -65,13 +70,14 @@ if not auth_status:
                     (new_username, hashed_password)
                 )
                 conn.commit()
-
                 st.success("Account Created!")
 
             except:
-                st.error("Username already exists.")
+                st.error("Username already exists")
 
         st.stop()
+
+    st.stop()
 
 # ================= LOGIN FAIL =================
 if auth_status is False:
@@ -110,7 +116,7 @@ if auth_status:
         entries = cursor.fetchall()
 
         for entry in entries:
-            col1, col2 = st.columns([8,1])
+            col1, col2 = st.columns([8, 1])
 
             with col1:
                 st.write(f"📅 {entry[1]}")
@@ -141,7 +147,7 @@ if auth_status:
         tasks = cursor.fetchall()
 
         for t in tasks:
-            col1, col2 = st.columns([8,1])
+            col1, col2 = st.columns([8, 1])
 
             with col1:
                 checked = st.checkbox(
@@ -180,7 +186,7 @@ if auth_status:
         timetable = cursor.fetchall()
 
         for t in timetable:
-            col1, col2 = st.columns([8,1])
+            col1, col2 = st.columns([8, 1])
 
             with col1:
                 st.write(f"{t[1]} → {t[2]}")
@@ -214,7 +220,7 @@ if auth_status:
         moods = cursor.fetchall()
 
         for m in moods:
-            col1, col2 = st.columns([8,1])
+            col1, col2 = st.columns([8, 1])
 
             with col1:
                 st.write(f"📅 {m[1]} → {m[2]}")
