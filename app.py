@@ -22,10 +22,10 @@ def get_credentials():
 
     credentials = {"usernames": {}}
 
-    for user in users:
-        credentials["usernames"][user[0]] = {
-            "name": user[0],
-            "password": user[1]
+    for u in users:
+        credentials["usernames"][u[0]] = {
+            "name": u[0],
+            "password": u[1]
         }
 
     return credentials
@@ -33,7 +33,6 @@ def get_credentials():
 
 credentials = get_credentials()
 
-# ================= AUTH =================
 authenticator = stauth.Authenticate(
     credentials,
     "mindnest_cookie",
@@ -41,20 +40,21 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
-# NEW STYLE (NO UNPACKING)
+# ================= LOGIN HANDLING =================
 authenticator.login(location="main")
 
 name = st.session_state.get("name")
 auth_status = st.session_state.get("authentication_status")
 username = st.session_state.get("username")
 
-# ================= SIGN UP / LOGIN UI =================
-if auth_status is None:
+# ================= NOT LOGGED IN =================
+if auth_status is None or auth_status is False:
 
     st.title("🌙 MindNest")
 
     option = st.radio("Choose Option", ["Login", "Sign Up"])
 
+    # ---------- SIGN UP ----------
     if option == "Sign Up":
 
         new_username = st.text_input("Create Username")
@@ -77,14 +77,13 @@ if auth_status is None:
 
         st.stop()
 
+    # ---------- LOGIN FAIL ----------
+    if auth_status is False:
+        st.error("Wrong username or password")
+
     st.stop()
 
-# ================= LOGIN FAIL =================
-if auth_status is False:
-    st.error("Incorrect username or password")
-    st.stop()
-
-# ================= LOGIN SUCCESS =================
+# ================= LOGGED IN =================
 if auth_status:
 
     authenticator.logout("Logout", "sidebar")
@@ -108,26 +107,12 @@ if auth_status:
                 (str(date.today()), diary_text)
             )
             conn.commit()
-            st.success("Entry Saved!")
-
-        st.subheader("Previous Entries")
+            st.success("Saved!")
 
         cursor.execute("SELECT * FROM diary ORDER BY id DESC")
-        entries = cursor.fetchall()
-
-        for entry in entries:
-            col1, col2 = st.columns([8, 1])
-
-            with col1:
-                st.write(f"📅 {entry[1]}")
-                st.write(entry[2])
-
-            with col2:
-                if st.button("❌", key=f"diary_{entry[0]}"):
-                    cursor.execute("DELETE FROM diary WHERE id=?", (entry[0],))
-                    conn.commit()
-                    st.rerun()
-
+        for e in cursor.fetchall():
+            st.write(f"📅 {e[1]}")
+            st.write(e[2])
             st.markdown("---")
 
     # ================= TODO =================
@@ -137,96 +122,49 @@ if auth_status:
         task = st.text_input("New Task")
 
         if st.button("Add Task"):
-            cursor.execute(
-                "INSERT INTO todo (task, completed) VALUES (?, ?)",
-                (task, 0)
-            )
+            cursor.execute("INSERT INTO todo (task, completed) VALUES (?, ?)", (task, 0))
             conn.commit()
 
         cursor.execute("SELECT * FROM todo")
-        tasks = cursor.fetchall()
-
-        for t in tasks:
-            col1, col2 = st.columns([8, 1])
+        for t in cursor.fetchall():
+            col1, col2 = st.columns([8,1])
 
             with col1:
-                checked = st.checkbox(
-                    t[1],
-                    value=bool(t[2]),
-                    key=f"todo_{t[0]}"
-                )
-
-                cursor.execute(
-                    "UPDATE todo SET completed=? WHERE id=?",
-                    (1 if checked else 0, t[0])
-                )
+                checked = st.checkbox(t[1], value=bool(t[2]), key=f"todo_{t[0]}")
+                cursor.execute("UPDATE todo SET completed=? WHERE id=?", (1 if checked else 0, t[0]))
                 conn.commit()
 
             with col2:
-                if st.button("❌", key=f"delete_{t[0]}"):
+                if st.button("❌", key=f"del_{t[0]}"):
                     cursor.execute("DELETE FROM todo WHERE id=?", (t[0],))
                     conn.commit()
                     st.rerun()
 
     # ================= TIMETABLE =================
     elif menu == "Timetable":
-        st.header("Daily Timetable")
+        st.header("Timetable")
 
         time_slot = st.text_input("Time")
         activity = st.text_input("Activity")
 
-        if st.button("Save Timetable"):
-            cursor.execute(
-                "INSERT INTO timetable (time_slot, activity) VALUES (?, ?)",
-                (time_slot, activity)
-            )
+        if st.button("Save"):
+            cursor.execute("INSERT INTO timetable (time_slot, activity) VALUES (?, ?)", (time_slot, activity))
             conn.commit()
 
         cursor.execute("SELECT * FROM timetable")
-        timetable = cursor.fetchall()
-
-        for t in timetable:
-            col1, col2 = st.columns([8, 1])
-
-            with col1:
-                st.write(f"{t[1]} → {t[2]}")
-
-            with col2:
-                if st.button("❌", key=f"tt_{t[0]}"):
-                    cursor.execute("DELETE FROM timetable WHERE id=?", (t[0],))
-                    conn.commit()
-                    st.rerun()
+        for t in cursor.fetchall():
+            st.write(f"{t[1]} → {t[2]}")
 
     # ================= MOOD =================
     elif menu == "Mood Tracker":
         st.header("Mood Tracker")
 
-        mood = st.selectbox(
-            "Today's Mood",
-            ["😊 Happy", "😔 Sad", "😴 Tired", "😡 Angry"]
-        )
+        mood = st.selectbox("Mood", ["😊 Happy", "😔 Sad", "😴 Tired", "😡 Angry"])
 
         if st.button("Save Mood"):
-            cursor.execute(
-                "INSERT INTO mood (mood_date, mood) VALUES (?, ?)",
-                (str(date.today()), mood)
-            )
+            cursor.execute("INSERT INTO mood (mood_date, mood) VALUES (?, ?)", (str(date.today()), mood))
             conn.commit()
-            st.success("Mood Saved!")
-
-        st.subheader("Mood History")
 
         cursor.execute("SELECT * FROM mood ORDER BY id DESC")
-        moods = cursor.fetchall()
-
-        for m in moods:
-            col1, col2 = st.columns([8, 1])
-
-            with col1:
-                st.write(f"📅 {m[1]} → {m[2]}")
-
-            with col2:
-                if st.button("❌", key=f"mood_{m[0]}"):
-                    cursor.execute("DELETE FROM mood WHERE id=?", (m[0],))
-                    conn.commit()
-                    st.rerun()
+        for m in cursor.fetchall():
+            st.write(f"📅 {m[1]} → {m[2]}")
