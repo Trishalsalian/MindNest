@@ -15,106 +15,30 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 conn.commit()
 
-st.title("🌙 MindNest")
+# ================= AUTH =================
+if not st.session_state.get("authentication_status"):
 
-auth_mode = st.radio(
-    "Choose Option",
-    ["Login", "Sign Up"]
-)
-
-# ================= SIGN UP =================
-if auth_mode == "Sign Up":
-
-    new_username = st.text_input("Create Username")
-    new_password = st.text_input("Create Password", type="password")
-
-    if st.button("Create Account"):
-
-        hashed_password = stauth.Hasher([new_password]).generate()[0]
-
-        try:
-            cursor.execute(
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-                (new_username, hashed_password)
-            )
-            conn.commit()
-
-            st.success("Account Created!")
-
-        except:
-            st.error("Username already exists.")
-
-    st.stop()
-
-# ================= LOGIN =================
-cursor.execute("SELECT username, password FROM users")
-users = cursor.fetchall()
-
-credentials = {
-    "usernames": {}
-}
-
-for user in users:
-    credentials["usernames"][user[0]] = {
-        "name": user[0],
-        "password": user[1]
-    }
-
-authenticator = stauth.Authenticate(
-    credentials,
-    "mindnest_cookie",
-    "abcdef",
-    cookie_expiry_days=30
-)
-
-name, authentication_status, username = authenticator.login(
-    "Login",
-    "main"
-)
-
-if authentication_status == False:
-    st.error("Incorrect username or password")
-    st.stop()
-
-if authentication_status == None:
-    st.warning("Please enter login details")
-    st.stop()
-
-# ================= MAIN APP =================
-if authentication_status:
-
-    authenticator.logout("Logout", "sidebar")
-
-    st.title(f"🌙 MindNest — Welcome {username}")
-=======
-# ================= LOGIN SYSTEM =================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if "username" not in st.session_state:
-    st.session_state.username = ""
-
-if not st.session_state.logged_in:
-
-    st.title("🌙 MindNest Login")
+    st.title("🌙 MindNest")
 
     auth_mode = st.radio(
         "Choose Option",
         ["Login", "Sign Up"]
     )
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    # ---------- SIGN UP ----------
+    # ================= SIGN UP =================
     if auth_mode == "Sign Up":
 
+        new_username = st.text_input("Create Username")
+        new_password = st.text_input("Create Password", type="password")
+
         if st.button("Create Account"):
+
+            hashed_password = stauth.Hasher([new_password]).generate()[0]
 
             try:
                 cursor.execute(
                     "INSERT INTO users (username, password) VALUES (?, ?)",
-                    (username, password)
+                    (new_username, hashed_password)
                 )
                 conn.commit()
 
@@ -123,36 +47,62 @@ if not st.session_state.logged_in:
             except:
                 st.error("Username already exists.")
 
-    # ---------- LOGIN ----------
-    else:
+        st.stop()
 
-        if st.button("Login"):
+    # ================= LOGIN =================
+    cursor.execute("SELECT username, password FROM users")
+    users = cursor.fetchall()
 
-            cursor.execute(
-                "SELECT * FROM users WHERE username=? AND password=?",
-                (username, password)
-            )
+    credentials = {
+        "usernames": {}
+    }
 
-            user = cursor.fetchone()
+    for user in users:
+        credentials["usernames"][user[0]] = {
+            "name": user[0],
+            "password": user[1]
+        }
 
-            if user:
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.rerun()
+    authenticator = stauth.Authenticate(
+        credentials,
+        "mindnest_cookie",
+        "abcdef",
+        cookie_expiry_days=30
+    )
 
-            else:
-                st.error("Invalid username or password")
+    try:
+        authenticator.login(location="main")
+    except Exception as e:
+        st.error(e)
 
-# ================= MAIN APP =================
-else:
+# ================= AFTER LOGIN =================
+if st.session_state.get("authentication_status"):
 
-    st.title(f"🌙 MindLess — Welcome {st.session_state.username}")
+    cursor.execute("SELECT username, password FROM users")
+    users = cursor.fetchall()
 
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.username = ""
-        st.rerun()
->>>>>>> eb50f6b9264492ee64f91ed447b79f8b43d450d1
+    credentials = {
+        "usernames": {}
+    }
+
+    for user in users:
+        credentials["usernames"][user[0]] = {
+            "name": user[0],
+            "password": user[1]
+        }
+
+    authenticator = stauth.Authenticate(
+        credentials,
+        "mindnest_cookie",
+        "abcdef",
+        cookie_expiry_days=30
+    )
+
+    authenticator.logout("Logout", "sidebar")
+
+    username = st.session_state.get("username")
+
+    st.title(f"🌙 MindNest — Welcome {username}")
 
     menu = st.sidebar.radio(
         "Navigate",
@@ -308,3 +258,9 @@ else:
                     )
                     conn.commit()
                     st.rerun()
+
+elif st.session_state.get("authentication_status") is False:
+    st.error("Incorrect username or password")
+
+elif st.session_state.get("authentication_status") is None:
+    st.warning("Please enter login details")
